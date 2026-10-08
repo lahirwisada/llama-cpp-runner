@@ -2,18 +2,31 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import subprocess
 import os
-import signal
+import sys
 import psutil
 import threading
+import platform
 
 class LlamaCppRunner:
     def __init__(self, root):
         self.root = root
-        self.root.title("Llama.cpp Runner - MX Linux")
+        self.root.title("Llama.cpp Runner - Cross Platform")
         self.root.geometry("600x550")
         
-        # Default paths
-        self.default_bin_path = "/media/2019DATA/www/llama.cpp/build/bin"
+        # Deteksi Sistem Operasi
+        self.is_windows = platform.system() == "Windows"
+        
+        # Default paths berdasarkan OS
+        if self.is_windows:
+            # Contoh path default di Windows
+            self.default_bin_path = "C:\\llama.cpp\\build\\bin\\Release"
+            self.server_exe = "llama-server.exe"
+            self.cli_exe = "llama-cli.exe"
+        else:
+            self.default_bin_path = "/media/2019DATA/www/llama.cpp/build/bin"
+            self.server_exe = "llama-server"
+            self.cli_exe = "llama-cli"
+
         self.process = None
         
         self.create_widgets()
@@ -52,7 +65,7 @@ class LlamaCppRunner:
         ttk.Entry(params_grid, textvariable=self.context_var, width=10).grid(row=0, column=3, padx=5)
 
         ttk.Label(params_grid, text="Predict (-n):").grid(row=1, column=0, sticky="w")
-        self.predict_var = tk.StringVar(value="-1") # -1 for infinite
+        self.predict_var = tk.StringVar(value="-1") 
         ttk.Entry(params_grid, textvariable=self.predict_var, width=10).grid(row=1, column=1, padx=5)
 
         ttk.Label(params_grid, text="Port (--port):").grid(row=1, column=2, sticky="w")
@@ -82,7 +95,10 @@ class LlamaCppRunner:
         ttk.Button(btn_frame, text="🔄 Cek Proses", command=self.check_running_processes).pack(side="left", padx=5)
 
     def browse_bin(self):
-        path = filedialog.askdirectory(initialdir=self.bin_path_var.get())
+        if self.is_windows:
+            path = filedialog.askdirectory(initialdir=self.bin_path_var.get())
+        else:
+            path = filedialog.askdirectory(initialdir=self.bin_path_var.get())
         if path:
             self.bin_path_var.set(path)
 
@@ -93,25 +109,35 @@ class LlamaCppRunner:
 
     def check_running_processes(self):
         found = False
+        target_names = [self.server_exe, self.cli_exe, "llama-server", "llama-cli"]
+        
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
+                # Cek nama proses atau command line
+                proc_name = proc.info['name'] or ""
                 cmdline = " ".join(proc.info['cmdline'] or [])
-                if 'llama-server' in cmdline or 'llama-cli' in cmdline:
+                
+                if any(name in proc_name or name in cmdline for name in target_names):
                     self.status_label.config(text=f"Status: DETECTED (PID: {proc.info['pid']})", foreground="orange")
                     found = True
                     break
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
+                
         if not found:
             self.status_label.config(text="Status: Idle (No process found)", foreground="green")
 
     def stop_and_clean(self):
         killed_count = 0
+        target_names = [self.server_exe, self.cli_exe, "llama-server", "llama-cli"]
+
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
+                proc_name = proc.info['name'] or ""
                 cmdline = " ".join(proc.info['cmdline'] or [])
-                if 'llama-server' in cmdline or 'llama-cli' in cmdline:
-                    proc.kill()
+                
+                if any(name in proc_name or name in cmdline for name in target_names):
+                    proc.kill() # kill() works on both Windows and Linux
                     killed_count += 1
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
@@ -131,7 +157,14 @@ class LlamaCppRunner:
             return
 
         mode = self.mode_var.get()
-        executable = os.path.join(bin_path, f"llama-{mode}") if mode == 'server' else os.path.join(bin_path, "llama-cli")
+        
+        # Tentukan nama executable berdasarkan OS dan Mode
+        if mode == 'server':
+            exe_name = self.server_exe
+        else:
+            exe_name = self.cli_exe
+            
+        executable = os.path.join(bin_path, exe_name)
         
         if not os.path.exists(executable):
             messagebox.showerror("Error", f"Executable tidak ditemukan di: {executable}")
@@ -150,17 +183,17 @@ class LlamaCppRunner:
         else:
             cmd.extend(["-n", self.predict_var.get(), "--color"])
 
-        # Run in background thread so GUI doesn't freeze
+        # Run in background thread
         threading.Thread(target=self.execute_process, args=(cmd, mode), daemon=True).start()
         self.status_label.config(text="Status: Starting...", foreground="blue")
 
     def execute_process(self, cmd, mode):
         try:
-            if mode == 'cli':
-                # For CLI, we might want it to stay in terminal, but here we run detached
-                subprocess.Popen(cmd, start_new_session=True)
+            # Detach process agar bisa menutup GUI runner tanpa mematikan AI
+            if self.is_windows:
+                # CREATE_NEW_PROCESS_GROUP diperlukan di Windows untuk detach yang bersih
+                subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
             else:
-                # For server, run detached
                 subprocess.Popen(cmd, start_new_session=True)
             
             self.root.after(1000, self.check_running_processes)
