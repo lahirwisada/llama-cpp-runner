@@ -11,7 +11,7 @@ class LlamaCppRunner:
     def __init__(self, root):
         self.root = root
         self.root.title("Llama.cpp Runner - MXLinux Optimized")
-        self.root.geometry("750x700")
+        self.root.geometry("700x650")
         
         # Deteksi Sistem Operasi
         self.is_windows = platform.system() == "Windows"
@@ -48,12 +48,7 @@ class LlamaCppRunner:
         self.notebook.add(tab_adv, text="🔧 Lanjutan (-ngl, dll)")
         self.create_advanced_tab(tab_adv)
         
-        # Tab 3: Sampling Parameters (BARU)
-        tab_sample = ttk.Frame(self.notebook, padding=10)
-        self.notebook.add(tab_sample, text=" Sampling")
-        self.create_sampling_tab(tab_sample)
-        
-        # Tab 4: Bantuan & Penjelasan
+        # Tab 3: Bantuan & Penjelasan
         tab_help = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(tab_help, text="❓ Help / Penjelasan")
         self.create_help_tab(tab_help)
@@ -101,11 +96,11 @@ class LlamaCppRunner:
         grid_p.pack(fill="x")
         
         ttk.Label(grid_p, text="Threads (-t):").grid(row=0, column=0, sticky="w")
-        self.thread_var = tk.StringVar(value="2")  # Default 2 untuk CPU usage 48%
+        self.thread_var = tk.StringVar(value="4")
         ttk.Entry(grid_p, textvariable=self.thread_var, width=10).grid(row=0, column=1, padx=5)
         
         ttk.Label(grid_p, text="Context (-c):").grid(row=0, column=2, sticky="w")
-        self.context_var = tk.StringVar(value="8192")
+        self.context_var = tk.StringVar(value="8192") # Aman dengan ZRAM 2GB
         ttk.Entry(grid_p, textvariable=self.context_var, width=10).grid(row=0, column=3, padx=5)
         
         ttk.Label(grid_p, text="Predict (-n):").grid(row=1, column=0, sticky="w")
@@ -139,84 +134,11 @@ class LlamaCppRunner:
         self.mirostat_var = tk.StringVar(value="0")
         ttk.Combobox(grid_g, textvariable=self.mirostat_var, values=["0", "1", "2"], width=8).grid(row=1, column=3, padx=5)
 
-    def create_sampling_tab(self, parent):
-        """Tab baru untuk parameter sampling: temperature, top_p, top_k, min_p"""
-        
-        # --- Preset Mode Selection ---
-        frame_preset = ttk.LabelFrame(parent, text="Preset Mode", padding=10)
-        frame_preset.pack(fill="x", pady=5)
-        
-        self.preset_var = tk.StringVar(value="thinking")
-        ttk.Radiobutton(frame_preset, text="Thinking Mode (Default) - Lebih analitis & terstruktur", 
-                       variable=self.preset_var, value="thinking",
-                       command=self.apply_preset).pack(anchor="w")
-        ttk.Radiobutton(frame_preset, text="Non-Thinking Mode - Lebih kreatif & natural", 
-                       variable=self.preset_var, value="non-thinking",
-                       command=self.apply_preset).pack(anchor="w")
-        
-        # --- Sampling Parameters ---
-        frame_sample = ttk.LabelFrame(parent, text="Parameter Sampling", padding=10)
-        frame_sample.pack(fill="x", pady=5)
-        
-        grid_s = ttk.Frame(frame_sample)
-        grid_s.pack(fill="x")
-        
-        # Temperature
-        ttk.Label(grid_s, text="Temperature (--temperature):").grid(row=0, column=0, sticky="w")
-        self.temp_var = tk.StringVar(value="0.6")
-        ttk.Entry(grid_s, textvariable=self.temp_var, width=10).grid(row=0, column=1, padx=5)
-        ttk.Label(grid_s, text="(0.0-2.0, default: 0.6)").grid(row=0, column=2, sticky="w")
-        
-        # Top P
-        ttk.Label(grid_s, text="Top P (--top-p):").grid(row=1, column=0, sticky="w")
-        self.top_p_var = tk.StringVar(value="0.95")
-        ttk.Entry(grid_s, textvariable=self.top_p_var, width=10).grid(row=1, column=1, padx=5)
-        ttk.Label(grid_s, text="(0.0-1.0, default: 0.95)").grid(row=1, column=2, sticky="w")
-        
-        # Top K
-        ttk.Label(grid_s, text="Top K (--top-k):").grid(row=2, column=0, sticky="w")
-        self.top_k_var = tk.StringVar(value="20")
-        ttk.Entry(grid_s, textvariable=self.top_k_var, width=10).grid(row=2, column=1, padx=5)
-        ttk.Label(grid_s, text="(1-100, default: 20)").grid(row=2, column=2, sticky="w")
-        
-        # Min P
-        ttk.Label(grid_s, text="Min P (--min-p):").grid(row=3, column=0, sticky="w")
-        self.min_p_var = tk.StringVar(value="0.0")
-        ttk.Entry(grid_s, textvariable=self.min_p_var, width=10).grid(row=3, column=1, padx=5)
-        ttk.Label(grid_s, text="(0.0-1.0, default: 0.0)").grid(row=3, column=2, sticky="w")
-        
-        # Info box
-        info_text = """
-💡 Tips:
-• Temperature rendah (0.2-0.5) = Output lebih fokus & deterministik
-• Temperature tinggi (0.7-1.0) = Output lebih kreatif & bervariasi
-• Top P = Nucleus sampling, pilih token dengan probabilitas kumulatif ≤ nilai ini
-• Top K = Batasi pilihan ke K token teratas
-• Min P = Threshold minimum probabilitas relatif terhadap token teratas
-"""
-        txt_info = tk.Text(parent, wrap="word", font=("Consolas", 9), bg="#1e1e1e", fg="#d4d4d4", height=6)
-        txt_info.insert("1.0", info_text)
-        txt_info.config(state="disabled")
-        txt_info.pack(fill="x", pady=5)
-
-    def apply_preset(self):
-        """Terapkan preset values berdasarkan mode yang dipilih"""
-        if self.preset_var.get() == "thinking":
-            self.temp_var.set("0.6")
-            self.top_p_var.set("0.95")
-            self.top_k_var.set("20")
-            self.min_p_var.set("0.0")
-        else:  # non-thinking
-            self.temp_var.set("0.7")
-            self.top_p_var.set("0.8")
-            self.top_k_var.set("20")
-            self.min_p_var.set("0.0")
-
     def create_help_tab(self, parent):
         help_text = """PENJELASAN ARGUMEN LLAMA.CPP:
 
 [PERFORMA DASAR]
-• -t (Threads): Jumlah thread CPU. Untuk i5 gen4/5, gunakan 2.
+• -t (Threads): Jumlah thread CPU. Untuk i5 gen4/5, gunakan 4. 
   Jangan set melebihi jumlah physical core.
 • -c (Context): Panjang konteks token. Default 8192 (aman dengan ZRAM 2GB).
   Naikkan ke 16384+ jika butuh dokumen sangat panjang.
@@ -234,27 +156,12 @@ class LlamaCppRunner:
 • --mirostat: Sampling algorithm untuk menjaga kualitas teks. 
   0 = disabled, 1 = mirostat, 2 = mirostat v2 (lebih stabil).
 
-[SAMPLING PARAMETERS]
-• --temperature: Mengontrol "kreativitas" model.
-  0.0 = Sangat deterministik (selalu pilih token paling mungkin)
-  0.6 = Balanced (default thinking mode)
-  0.7 = Lebih kreatif (default non-thinking mode)
-  1.0+ = Sangat kreatif tapi bisa tidak koheren
-• --top-p: Nucleus sampling. Pilih dari token dengan probabilitas
-  kumulatif ≤ nilai ini. 0.95 = pilih dari 95% probabilitas teratas.
-• --top-k: Batasi pilihan ke K token dengan probabilitas tertinggi.
-  20 = hanya pertimbangkan 20 token teratas.
-• --min-p: Threshold minimum probabilitas relatif terhadap token
-  teratas. 0.0 = disabled, 0.1 = hanya token dengan prob ≥ 10% dari token teratas.
-
 [TIPS UNTUK SETUP ANDA]
 • Model Qwen3.8-4B-Q4_K_M (~2.6GB) sangat ringan.
 • ZRAM 2GB + Swap 8GB membuat sistem sangat stabil.
 • Selalu simpan model di /media/2019DATA agar root tetap lega.
 • Gunakan 'Stop & Clean Memory' jika laptop terasa berat setelah 
-  menjalankan inferensi lama.
-• Untuk coding: gunakan Thinking Mode (temperature 0.6)
-• Untuk creative writing: gunakan Non-Thinking Mode (temperature 0.7)"""
+  menjalankan inferensi lama."""
         
         txt = tk.Text(parent, wrap="word", font=("Consolas", 10), bg="#2d2d2d", fg="#e0e0e0")
         txt.insert("1.0", help_text)
@@ -339,24 +246,8 @@ class LlamaCppRunner:
             
         mirostat_val = self.mirostat_var.get().strip()
         if mirostat_val and mirostat_val != "0":
+            # PERBAIKAN: Gunakan --mirostat, BUKAN -m (karena -m sudah dipakai untuk model)
             cmd.extend(["--mirostat", mirostat_val])
-
-        # Tambahkan sampling parameters
-        temp_val = self.temp_var.get().strip()
-        if temp_val:
-            cmd.extend(["--temperature", temp_val])
-            
-        top_p_val = self.top_p_var.get().strip()
-        if top_p_val:
-            cmd.extend(["--top-p", top_p_val])
-            
-        top_k_val = self.top_k_var.get().strip()
-        if top_k_val:
-            cmd.extend(["--top-k", top_k_val])
-            
-        min_p_val = self.min_p_var.get().strip()
-        if min_p_val and min_p_val != "0.0":
-            cmd.extend(["--min-p", min_p_val])
 
         # Tambahkan argumen spesifik mode
         if mode == 'server':
